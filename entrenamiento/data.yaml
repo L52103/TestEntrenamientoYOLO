@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 4
+names: ['dress', 'glasses', 'googles', 'labcoat']
+
+roboflow:
+  workspace: lab-f3j3l
+  project: smart-health-safety-compliance-system
+  version: 11
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/lab-f3j3l/smart-health-safety-compliance-system/dataset/11

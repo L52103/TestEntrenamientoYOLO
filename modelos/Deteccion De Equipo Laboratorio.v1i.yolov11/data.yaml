@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 2
+names: ['Bata-Correcta', 'Bata-Incorrecta']
+
+roboflow:
+  workspace: l-zt8zp
+  project: deteccion-de-equipo-laboratorio-lpago
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/l-zt8zp/deteccion-de-equipo-laboratorio-lpago/dataset/1

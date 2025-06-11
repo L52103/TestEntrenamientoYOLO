@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['lab_coat']
+
+roboflow:
+  workspace: nn-a7dwg
+  project: lab_coat-new-set
+  version: 2
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/nn-a7dwg/lab_coat-new-set/dataset/2
