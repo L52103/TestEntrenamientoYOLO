@@ -12,18 +12,18 @@ face_net = cv2.dnn.readNet("deploy.prototxt", "res10_300x300_ssd_iter_140000.caf
 mask_model = load_model("mask_detector.h5")
 
 # Modelo YOLOv8 entrenado para detectar vest, glasses, goggles y labcoat
-epp_model = YOLO("C:/Users/Narut/OneDrive/Escritorio/Prueba EPP/runs/detect/train2/weights/best.pt")
+epp_model = YOLO("C:/Users/Narut/TestEntrenamientoYOLO/runs/detect/train2/weights/best.pt")
 
 # --- CONFIGURAR CÁMARA ---
 cap = cv2.VideoCapture(0)
 cap.set(3, 1280)
 cap.set(4, 720)
-cv2.namedWindow("Detección EPP", cv2.WINDOW_NORMAL)
+cv2.namedWindow("Deteccion EPP", cv2.WINDOW_NORMAL)
 
 # Colores por clase (puedes personalizar)
 epp_colors = {
-    "Bata-Correcta": (255, 255, 0),      # Amarillo
- #   "glasses": (0, 255, 255),   # Cyan
+    "Bata-Correcta": (255, 255,0 ),      # cyan
+ #   "glasses": (0, 255,255 ),   # amarillo
   #  "goggles": (255, 0, 255),   # Magenta
     "Bata-Incorrecta": (0, 165, 255)    # Naranja oscuro
 }

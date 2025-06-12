@@ -1,104 +1,84 @@
 import cv2
-import numpy as np
-import tensorflow as tf
-from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
-from tensorflow.keras.models import load_model
+import os
+import time
+from ultralytics import YOLO
 
+# Cargar modelos YOLO
+person_model = YOLO("ruta/a/person_model.pt")
+labcoat_model = YOLO("ruta/a/labcoat_detector.pt")
+labcoat_quality_model = YOLO("ruta/a/labcoat_quality.pt")
 
-def main():
-    # --- PASO 1: Cargar los modelos ---
-    prototxt_path = "deploy.prototxt"
-    weights_path = "res10_300x300_ssd_iter_140000.caffemodel"
-    face_net = cv2.dnn.readNet(prototxt_path, weights_path)
+# Crear carpeta para capturas si no existe
+output_dir = "capturas_incorrectas"
+os.makedirs(output_dir, exist_ok=True)
 
-    mask_model_path = "mask_detector.h5"
-    print("[INFO] Cargando modelo de mascarillas en formato H5...")
-    mask_net = load_model(mask_model_path)
+# Configurar cámara
+cap = cv2.VideoCapture(0)
+cap.set(3, 1280)
+cap.set(4, 720)
+cv2.namedWindow("Detección EPP", cv2.WINDOW_NORMAL)
 
-    # --- PASO 2: Iniciar la captura de video ---
-    print("[INFO] Iniciando la cámara...")
-    cap = cv2.VideoCapture(0)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+# Variables para control de tiempo
+incorrect_detected_time = None
+captured = False
 
-    if not cap.isOpened():
-        print("Error: No se pudo abrir la cámara.")
-        return
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
 
-    cv2.namedWindow("Deteccion de Mascarillas", cv2.WINDOW_NORMAL)
-    print("Presiona 'q' para salir.")
+    frame = cv2.flip(frame, 1)
+    orig = frame.copy()
+    current_time = time.time()
 
-    # --- PASO 3: Bucle principal ---
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("Error: No se pudo leer el frame de la cámara.")
-            break
+    # Paso 1: Detección de personas
+    results_person = person_model(orig, verbose=False)[0]
+    persons = [box for box in results_person.boxes if person_model.names[int(box.cls[0])] == "person" and float(box.conf[0]) > 0.5]
 
-        frame = cv2.flip(frame, 1)
-        (h, w) = frame.shape[:2]
-        blob = cv2.dnn.blobFromImage(frame, 1.0, (300, 300),
-                                     (104.0, 177.0, 123.0))
-        face_net.setInput(blob)
-        detections = face_net.forward()
+    bata_incorrecta_detectada = False
 
-        faces = []
-        locs = []
-        preds = []
+    for person_box in persons:
+        x1, y1, x2, y2 = map(int, person_box.xyxy[0])
+        person_roi = orig[y1:y2, x1:x2]
 
-        for i in range(0, detections.shape[2]):
-            confidence = detections[0, 0, i, 2]
-            if confidence > 0.5:
-                box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
-                (startX, startY, endX, endY) = box.astype("int")
+        # Paso 2: Detección de delantal
+        results_labcoat = labcoat_model(person_roi, verbose=False)[0]
+        has_labcoat = any(labcoat_model.names[int(box.cls[0])] == "labcoat" and float(box.conf[0]) > 0.5 for box in results_labcoat.boxes)
 
-                (startX, startY) = (max(0, startX), max(0, startY))
-                (endX, endY) = (min(w - 1, endX), min(h - 1, endY))
+        if has_labcoat:
+            # Paso 3: Validación del uso correcto
+            results_quality = labcoat_quality_model(person_roi, verbose=False)[0]
+            for box in results_quality.boxes:
+                class_name = labcoat_quality_model.names[int(box.cls[0])]
+                conf = float(box.conf[0])
+                color = (0, 255, 0) if "Correcta" in class_name else (0, 165, 255)
+                label = f"{class_name}: {conf*100:.1f}%"
+                bx1, by1, bx2, by2 = map(int, box.xyxy[0])
 
-                face = frame[startY:endY, startX:endX]
-                if face.size == 0:
-                    continue
-                face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+                cv2.rectangle(frame, (x1+bx1, y1+by1), (x1+bx2, y1+by2), color, 2)
+                cv2.putText(frame, label, (x1+bx1, y1+by1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
-                # Usa tamaño 150x150 si tu modelo fue entrenado así
-                face = cv2.resize(face, (224, 224))
-                face = preprocess_input(face)
-                faces.append(face)
-                locs.append((startX, startY, endX, endY))
+                # Detectar bata incorrecta
+                if "Incorrecta" in class_name:
+                    bata_incorrecta_detectada = True
 
-        if len(faces) > 0:
-            faces = np.array(faces, dtype="float32")
-            preds = mask_net.predict(faces, batch_size=32)
+    # Manejo de tiempo para captura
+    if bata_incorrecta_detectada:
+        if incorrect_detected_time is None:
+            incorrect_detected_time = current_time
+        elif current_time - incorrect_detected_time >= 3 and not captured:
+            # Guardar captura
+            filename = f"{output_dir}/bata_incorrecta_{int(time.time())}.jpg"
+            cv2.imwrite(filename, frame)
+            print(f"[INFO] Captura guardada: {filename}")
+            captured = True
+    else:
+        incorrect_detected_time = None
+        captured = False
 
-        # print para debug (puedes comentar luego)
-        # print(preds)
+    cv2.imshow("Detección EPP", frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
 
-        for (box, pred) in zip(locs, preds):
-            (startX, startY, endX, endY) = box
-
-            mask_prob = pred[0]  # Probabilidad de usar mascarilla
-
-            if mask_prob > 0.5:
-                label = "Con Mascarilla"
-                color = (0, 255, 0)
-            else:
-                label = "Sin Mascarilla"
-                color = (0, 0, 255)
-
-            label = f"{label}: {mask_prob * 100:.2f}%"
-            cv2.putText(frame, label, (startX, startY - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-            cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
-
-        cv2.imshow("Deteccion de Mascarillas", frame)
-
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    print("[INFO] Limpiando...")
-    cap.release()
-    cv2.destroyAllWindows()
-
-
-if __name__ == "__main__":
-    main()
+cap.release()
+cv2.destroyAllWindows()
