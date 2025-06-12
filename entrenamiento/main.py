@@ -1,5 +1,3 @@
-from ultralytics import YOLO
-
-if __name__ == '__main__':
-    model = YOLO('yolov8m.pt')
-    model.train(data='C:/Users/Narut/OneDrive/Escritorio/Prueba EPP/entrenamiento/data.yaml', epochs=100, imgsz=512 , batch=8, device=0)
+import torch
+print(torch.__version__)           # PyTorch Version: 2.4.1
+print(torch.cuda.is_available()) 

@@ -63,7 +63,7 @@ tensorflow==2.4.1
 tensorflow-addons==0.21.0
 tensorflow-estimator==2.4.0
 termcolor==1.1.0
-torch==2.4.1+cu118
+torch==2.4.1+cu128
 torchaudio==2.4.1+cu118
 torchvision==0.19.1+cu118
 tqdm==4.67.1
